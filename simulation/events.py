@@ -1,9 +1,5 @@
-# simulation/events.py
-# Branching storylines & scenario definitions.
-# All identities are presented the same CHOICES, but outcomes differ by identity.
 import random
 
-# Life events (10) — choices identical for everyone
 LIFE_EVENTS = [
     {"id":"housing", "event":"You want to buy a house in your neighborhood.",
      "choices":["Apply for mortgage","Rent instead","Move to another area"]},
@@ -27,10 +23,7 @@ LIFE_EVENTS = [
      "choices":["Safe neighborhood","Moderate safety","Unsafe neighborhood"]}
 ]
 
-# Outcome probabilities and effects by (race)
-# For each important choice keyword, define outcome chances for different races.
 OUTCOME_RULES = {
-    # keyword in choice: mapping race -> probabilities for ("Denied","Partial","Success")
     "mortgage": {
         "White": (0.05, 0.15, 0.80),
         "Black": (0.50, 0.30, 0.20),
@@ -61,7 +54,6 @@ OUTCOME_RULES = {
         "Hispanic": (0.30,0.45,0.25),
         "Other": (0.25,0.50,0.25)
     },
-    # Generic groups (health, general)
     "health": {
         "White": (0.05,0.20,0.75),
         "Black": (0.30,0.40,0.30),
@@ -94,8 +86,7 @@ def _pick_rule(choice_text):
 
 def resolve_outcome(identity_race, choice_text):
     rule = _pick_rule(choice_text)
-    probs = rule.get(identity_race, rule["default"]) if isinstance(rule, dict) else rule[identity_race]
-    # probs is (p_denied, p_partial, p_success)
+    probs = rule.get(identity_race, OUTCOME_RULES["default"]["White"])
     r = random.random()
     if r < probs[0]:
         return "Denied"
@@ -104,7 +95,6 @@ def resolve_outcome(identity_race, choice_text):
     else:
         return "Success"
 
-# Effects mapping by outcome: (wealth_delta, education_delta, health_delta)
 OUTCOME_EFFECTS = {
     "Denied": ( -5, -3, -5),
     "Partial": ( 3, 4, -1),
