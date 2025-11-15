@@ -1,88 +1,120 @@
 import random
 
-# Step 1: Assign mock identities
+# Step 1: Assign identity
 identities = ["White", "Black", "Hispanic", "Other"]
 
-# Life events with different possible choices
-life_events = [
-    {
-        "event": "You want to buy a house in your neighborhood.",
-        "choices": ["Apply for a mortgage", "Rent instead", "Move to another area"]
-    },
-    {
-        "event": "You want to go to college.",
-        "choices": ["Apply for scholarships", "Attend community college", "Skip college"]
-    },
-    {
-        "event": "You need healthcare for a minor illness.",
-        "choices": ["Go to private clinic", "Go to free clinic", "Ignore symptoms"]
-    },
-    {
-        "event": "You are offered a job opportunity.",
-        "choices": ["Take high paying job", "Take low paying job", "Start own business"]
-    }
-]
+# Step 2: Life events with identity-specific options
+def get_life_event(student_identity):
+    events = []
 
-# Step 2: Define how identity affects outcomes
-# Positive or negative adjustments based on identity
-identity_modifiers = {
-    "White": {"wealth": 1.2, "education": 1.2, "health": 1.2},
-    "Black": {"wealth": 0.8, "education": 0.9, "health": 0.9},
-    "Hispanic": {"wealth": 0.85, "education": 0.95, "health": 0.95},
-    "Other": {"wealth": 1.0, "education": 1.0, "health": 1.0}
-}
+    # Housing event
+    if student_identity == "White":
+        events.append({
+            "event": "You want to buy a house in your neighborhood.",
+            "choices": ["Approved mortgage", "Rent instead", "Move to another area"]
+        })
+    else:
+        # Black/Hispanic face barriers
+        events.append({
+            "event": "You want to buy a house in your neighborhood.",
+            "choices": ["Mortgage denied", "High interest mortgage", "Rent instead"]
+        })
 
-# Step 3: Initialize student
-def create_student():
-    student = {
-        "identity": random.choice(identities),
-        "wealth": 50,
-        "education": 50,
-        "health": 50
-    }
-    return student
+    # College event
+    if student_identity == "White":
+        events.append({
+            "event": "You want to go to college.",
+            "choices": ["Scholarship awarded", "Community college", "Skip college"]
+        })
+    else:
+        events.append({
+            "event": "You want to go to college.",
+            "choices": ["Scholarship denied", "Community college", "Skip college"]
+        })
 
-# Step 4: Simulate event
-def simulate_event(student, event):
+    # Healthcare event
+    if student_identity == "White":
+        events.append({
+            "event": "You need healthcare for a minor illness.",
+            "choices": ["Private clinic", "Community clinic", "Ignore symptoms"]
+        })
+    else:
+        events.append({
+            "event": "You need healthcare for a minor illness.",
+            "choices": ["Long wait community clinic", "Free clinic", "Ignore symptoms"]
+        })
+
+    # Career event
+    if student_identity == "White":
+        events.append({
+            "event": "You are offered a job opportunity.",
+            "choices": ["High paying job", "Moderate paying job", "Start own business"]
+        })
+    else:
+        events.append({
+            "event": "You are offered a job opportunity.",
+            "choices": ["Low paying job", "Moderate paying job", "Start own business"]
+        })
+
+    return random.choice(events)
+
+# Step 3: Define outcome impacts
+def apply_event(student, event):
     print(f"\nEVENT: {event['event']}")
-    for idx, choice in enumerate(event["choices"], 1):
-        print(f"{idx}. {choice}")
+    for i, choice in enumerate(event["choices"], 1):
+        print(f"{i}. {choice}")
+
     while True:
         try:
             user_choice = int(input("Enter the number of your choice: "))
             if 1 <= user_choice <= len(event["choices"]):
                 break
             else:
-                print("Please enter a valid number.")
+                print("Enter a valid number.")
         except ValueError:
-            print("Please enter a number.")
-    
-    # Base adjustments
-    if user_choice == 1:
-        base_wealth = 10
-        base_education = 5
-        base_health = 5
-    elif user_choice == 2:
-        base_wealth = 5
-        base_education = 10
-        base_health = 5
+            print("Enter a number.")
+
+    choice = event["choices"][user_choice - 1]
+
+    # Adjust outcomes based on choice and systemic barrier
+    if "denied" in choice or "Long wait" in choice or "Low paying" in choice:
+        student["wealth"] += 0
+        student["education"] += 0
+        student["health"] += -5
+    elif "High interest" in choice or "Community college" in choice:
+        student["wealth"] += 5
+        student["education"] += 5
+        student["health"] += 0
     else:
-        base_wealth = 0
-        base_education = 0
-        base_health = 0
+        student["wealth"] += 10
+        student["education"] += 10
+        student["health"] += 5
 
-    # Apply identity modifiers
-    mod = identity_modifiers[student["identity"]]
-    student["wealth"] += int(base_wealth * mod["wealth"])
-    student["education"] += int(base_education * mod["education"])
-    student["health"] += int(base_health * mod["health"])
-    
-    print(f"\nCurrent Status: Wealth={student['wealth']}, Education={student['education']}, Health={student['health']}")
+    print(f"Current Status → Wealth: {student['wealth']}, Education: {student['education']}, Health: {student['health']}")
 
-# Step 5: Run simulation
+# Step 4: Run simulation
 def run_simulation():
-    student = create_student()
-    print(f"Your assigned identity for this simulation is: {student['identity']}")
-    
-    rounds = 5  # number of events to simulate
-    for i in range(rounds):
+    student = {
+        "identity": random.choice(identities),
+        "wealth": 50,
+        "education": 50,
+        "health": 50
+    }
+
+    print(f"Your assigned identity is: {student['identity']}")
+
+    rounds = 5
+    for _ in range(rounds):
+        event = get_life_event(student["identity"])
+        apply_event(student, event)
+
+    # End of simulation
+    print("\n--- Simulation Complete ---")
+    print(f"Final outcomes for identity {student['identity']}:")
+    print(f"Wealth: {student['wealth']}")
+    print(f"Education: {student['education']}")
+    print(f"Health: {student['health']}")
+    print("\nReflection: The barriers and opportunities you faced during the simulation reflect systemic inequities associated with your identity.")
+
+if __name__ == "__main__":
+    run_simulation()
