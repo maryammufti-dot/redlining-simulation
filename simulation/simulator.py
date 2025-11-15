@@ -1,8 +1,6 @@
-# simulation/simulator.py
 from .identities import random_identity
 from .events import LIFE_EVENTS, resolve_outcome, OUTCOME_EFFECTS
-import random
-import time
+import random, time
 
 class Student:
     def __init__(self):
@@ -13,7 +11,7 @@ class Student:
         self.wealth = 50
         self.education = 50
         self.health = 50
-        self.history = []  # list of (event_id,event_text,choice,outcome,effects,timestamp)
+        self.history = []
 
     def record(self, event_id, event_text, choice, outcome):
         effects = OUTCOME_EFFECTS[outcome]
@@ -38,11 +36,11 @@ def run_interactive(student=None):
     print(f"Assigned identity: {student.identity} ({student.gender})")
     print(student.blurb)
     events = LIFE_EVENTS.copy()
-    random.shuffle(events)  # ensure no repeats
+    random.shuffle(events)
     for ev in events:
         print("\nEVENT:")
         print(ev["event"])
-        for i, ch in enumerate(ev["choices"],1):
+        for i,ch in enumerate(ev["choices"],1):
             print(f"{i}. {ch}")
         while True:
             try:
@@ -56,6 +54,5 @@ def run_interactive(student=None):
         outcome = resolve_outcome(student.identity, choice)
         student.record(ev["id"], ev["event"], choice, outcome)
         print(f"Outcome: {outcome}")
-        # show updated status
         print(f"Status: Wealth={student.wealth}, Education={student.education}, Health={student.health}")
     return student
