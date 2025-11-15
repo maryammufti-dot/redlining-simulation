@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Classroom Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<h1>Classroom Dashboard</h1>
+<canvas id="wealthChart" width="600" height="200"></canvas>
+<canvas id="eduChart" width="600" height="200"></canvas>
+<canvas id="healthChart" width="600" height="200"></canvas>
+<script>
+let wealthChart, eduChart, healthChart;
+function updateCharts(){
+  fetch("/get_dashboard").then(r=>r.json()).then(data=>{
+    let labels = Object.keys(data);
+    let wealth = labels.map(k=>data[k].wealth);
+    let education = labels.map(k=>data[k].education);
+    let health = labels.map(k=>data[k].health);
+    if(!wealthChart){
+      wealthChart = new Chart(document.getElementById('wealthChart'),{type:'bar',data:{labels, datasets:[{label:'Wealth',data:wealth}]}})
+      eduChart = new Chart(document.getElementById('eduChart'),{type:'bar',data:{labels,datasets:[{label:'Education',data:education}]}})
+      healthChart = new Chart(document.getElementById('healthChart'),{type:'bar',data:{labels,datasets:[{label:'Health',data:health}]}})
+    }else{
+      wealthChart.data.labels=labels; wealthChart.data.datasets[0].data=wealth; wealthChart.update();
+      eduChart.data.labels=labels; eduChart.data.datasets[0].data=education; eduChart.update();
+      healthChart.data.labels=labels; healthChart.data.datasets[0].data=health; healthChart.update();
+    }
+  });
+}
+setInterval(updateCharts, 2000);
+</script>
+</body>
+</html>
