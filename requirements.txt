@@ -1,3 +1,6 @@
-reportlab
-pandas
-numpy
+Flask>=2.0
+reportlab>=4.0
+pandas>=1.0
+folium>=0.12
+python-dotenv>=0.20
+Jinja2>=3.0
