@@ -1,5 +1,7 @@
+# simulation/events.py
 import random
 
+# Life events and choices
 LIFE_EVENTS = [
     {"id":"housing", "event":"You want to buy a house in your neighborhood.",
      "choices":["Apply for mortgage","Rent instead","Move to another area"]},
@@ -23,12 +25,13 @@ LIFE_EVENTS = [
      "choices":["Safe neighborhood","Moderate safety","Unsafe neighborhood"]}
 ]
 
+# Outcome probabilities by race
 OUTCOME_RULES = {
     "mortgage": {
-        "White": (0.05, 0.15, 0.80),
-        "Black": (0.50, 0.30, 0.20),
-        "Hispanic": (0.35, 0.40, 0.25),
-        "Other": (0.25, 0.45, 0.30)
+        "White": (0.05,0.15,0.80),
+        "Black": (0.50,0.30,0.20),
+        "Hispanic": (0.35,0.40,0.25),
+        "Other": (0.25,0.45,0.30)
     },
     "scholarship": {
         "White": (0.05,0.20,0.75),
@@ -68,35 +71,33 @@ OUTCOME_RULES = {
     }
 }
 
-def _pick_rule(choice_text):
-    text = choice_text.lower()
-    if "mortgage" in text:
-        return OUTCOME_RULES["mortgage"]
-    if "scholarship" in text:
-        return OUTCOME_RULES["scholarship"]
-    if "auto loan" in text:
-        return OUTCOME_RULES["auto loan"]
-    if "business loan" in text:
-        return OUTCOME_RULES["business loan"]
-    if "promotion" in text:
-        return OUTCOME_RULES["promotion"]
-    if "clinic" in text or "er" in text or "health" in text:
-        return OUTCOME_RULES["health"]
-    return OUTCOME_RULES["default"]
+OUTCOME_EFFECTS = {
+    "Denied": (-5,-3,-5),
+    "Partial": (3,4,-1),
+    "Success": (10,8,5)
+}
 
-def resolve_outcome(identity_race, choice_text):
-    rule = _pick_rule(choice_text)
-    probs = rule.get(identity_race, OUTCOME_RULES["default"]["White"])
+def resolve_outcome(race, choice):
+    key = choice.lower()
+    if "mortgage" in key:
+        rule = OUTCOME_RULES["mortgage"]
+    elif "scholarship" in key:
+        rule = OUTCOME_RULES["scholarship"]
+    elif "auto loan" in key:
+        rule = OUTCOME_RULES["auto loan"]
+    elif "business loan" in key:
+        rule = OUTCOME_RULES["business loan"]
+    elif "promotion" in key:
+        rule = OUTCOME_RULES["promotion"]
+    elif "clinic" in key or "er" in key or "health" in key:
+        rule = OUTCOME_RULES["health"]
+    else:
+        rule = OUTCOME_RULES["default"]
+    probs = rule.get(race, OUTCOME_RULES["default"][race])
     r = random.random()
     if r < probs[0]:
         return "Denied"
-    elif r < probs[0] + probs[1]:
+    elif r < probs[0]+probs[1]:
         return "Partial"
     else:
         return "Success"
-
-OUTCOME_EFFECTS = {
-    "Denied": ( -5, -3, -5),
-    "Partial": ( 3, 4, -1),
-    "Success": ( 10, 8, 5)
-}
