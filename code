@@ -3,66 +3,59 @@ import random
 # Step 1: Assign identity
 identities = ["White", "Black", "Hispanic", "Other"]
 
-# Step 2: Life events with identity-specific options
-def get_life_event(student_identity):
-    events = []
+# Step 2: Life events with same choices for all
+life_events = [
+    {"event": "You want to buy a house in your neighborhood.", 
+     "choices": ["Apply for mortgage", "Rent instead", "Move to another area"]},
+    {"event": "You want to go to college.", 
+     "choices": ["Apply for scholarships", "Attend community college", "Skip college"]},
+    {"event": "You need healthcare for a minor illness.", 
+     "choices": ["Go to private clinic", "Go to community clinic", "Ignore symptoms"]},
+    {"event": "You are offered a job opportunity.", 
+     "choices": ["Take high paying job", "Take moderate paying job", "Start own business"]},
+    {"event": "You want to buy a car.", 
+     "choices": ["Apply for auto loan", "Buy used car with cash", "Take public transportation"]},
+    {"event": "You want to start a small business.", 
+     "choices": ["Apply for business loan", "Self-fund business", "Wait and save money"]},
+    {"event": "You face a medical emergency.", 
+     "choices": ["Go to ER", "Visit urgent care", "Ignore symptoms"]},
+    {"event": "You are up for a promotion.", 
+     "choices": ["Promotion awarded", "Promotion delayed", "No promotion"]},
+    {"event": "You need childcare for your child.", 
+     "choices": ["Affordable high-quality childcare", "Moderate childcare", "Rely on family/friends"]},
+    {"event": "You are concerned about neighborhood safety.", 
+     "choices": ["Safe neighborhood", "Moderate safety", "Unsafe neighborhood"]},
+]
 
-    # Housing event
+# Step 3: Identity-specific outcomes
+def get_outcome(student_identity, choice):
+    # Mapping systemic barriers
     if student_identity == "White":
-        events.append({
-            "event": "You want to buy a house in your neighborhood.",
-            "choices": ["Approved mortgage", "Rent instead", "Move to another area"]
-        })
+        # White faces no barriers
+        return "Success", 10, 10, 5
+    elif student_identity == "Black":
+        # Black students face barriers
+        if choice in ["Apply for mortgage", "Apply for scholarships", "Apply for auto loan", "Apply for business loan", "Promotion awarded"]:
+            return "Denied / Barrier encountered", 0, 0, -5
+        elif choice in ["Take high paying job", "Go to private clinic", "Affordable high-quality childcare", "Safe neighborhood"]:
+            return "Partial success", 5, 5, 0
+        else:
+            return "Neutral outcome", 5, 5, 0
+    elif student_identity == "Hispanic":
+        # Hispanic students face moderate barriers
+        if choice in ["Apply for mortgage", "Apply for scholarships", "Apply for auto loan", "Apply for business loan", "Promotion awarded"]:
+            return "Denied / Barrier encountered", 0, 0, -3
+        else:
+            return "Neutral outcome", 5, 5, 0
     else:
-        # Black/Hispanic face barriers
-        events.append({
-            "event": "You want to buy a house in your neighborhood.",
-            "choices": ["Mortgage denied", "High interest mortgage", "Rent instead"]
-        })
+        # Other identities face average outcomes
+        return "Outcome varies", 5, 5, 0
 
-    # College event
-    if student_identity == "White":
-        events.append({
-            "event": "You want to go to college.",
-            "choices": ["Scholarship awarded", "Community college", "Skip college"]
-        })
-    else:
-        events.append({
-            "event": "You want to go to college.",
-            "choices": ["Scholarship denied", "Community college", "Skip college"]
-        })
-
-    # Healthcare event
-    if student_identity == "White":
-        events.append({
-            "event": "You need healthcare for a minor illness.",
-            "choices": ["Private clinic", "Community clinic", "Ignore symptoms"]
-        })
-    else:
-        events.append({
-            "event": "You need healthcare for a minor illness.",
-            "choices": ["Long wait community clinic", "Free clinic", "Ignore symptoms"]
-        })
-
-    # Career event
-    if student_identity == "White":
-        events.append({
-            "event": "You are offered a job opportunity.",
-            "choices": ["High paying job", "Moderate paying job", "Start own business"]
-        })
-    else:
-        events.append({
-            "event": "You are offered a job opportunity.",
-            "choices": ["Low paying job", "Moderate paying job", "Start own business"]
-        })
-
-    return random.choice(events)
-
-# Step 3: Define outcome impacts
+# Step 4: Apply event
 def apply_event(student, event):
     print(f"\nEVENT: {event['event']}")
-    for i, choice in enumerate(event["choices"], 1):
-        print(f"{i}. {choice}")
+    for idx, choice in enumerate(event["choices"], 1):
+        print(f"{idx}. {choice}")
 
     while True:
         try:
@@ -75,24 +68,16 @@ def apply_event(student, event):
             print("Enter a number.")
 
     choice = event["choices"][user_choice - 1]
+    outcome_message, wealth_change, edu_change, health_change = get_outcome(student["identity"], choice)
+    student["wealth"] += wealth_change
+    student["education"] += edu_change
+    student["health"] += health_change
 
-    # Adjust outcomes based on choice and systemic barrier
-    if "denied" in choice or "Long wait" in choice or "Low paying" in choice:
-        student["wealth"] += 0
-        student["education"] += 0
-        student["health"] += -5
-    elif "High interest" in choice or "Community college" in choice:
-        student["wealth"] += 5
-        student["education"] += 5
-        student["health"] += 0
-    else:
-        student["wealth"] += 10
-        student["education"] += 10
-        student["health"] += 5
-
+    print(f"Your choice: {choice}")
+    print(f"Outcome: {outcome_message}")
     print(f"Current Status → Wealth: {student['wealth']}, Education: {student['education']}, Health: {student['health']}")
 
-# Step 4: Run simulation
+# Step 5: Run simulation
 def run_simulation():
     student = {
         "identity": random.choice(identities),
@@ -103,18 +88,18 @@ def run_simulation():
 
     print(f"Your assigned identity is: {student['identity']}")
 
-    rounds = 5
-    for _ in range(rounds):
-        event = get_life_event(student["identity"])
+    rounds = 10  # number of life events
+    for i in range(rounds):
+        event = random.choice(life_events)
         apply_event(student, event)
 
-    # End of simulation
+    # End summary
     print("\n--- Simulation Complete ---")
     print(f"Final outcomes for identity {student['identity']}:")
     print(f"Wealth: {student['wealth']}")
     print(f"Education: {student['education']}")
     print(f"Health: {student['health']}")
-    print("\nReflection: The barriers and opportunities you faced during the simulation reflect systemic inequities associated with your identity.")
+    print("\nReflection: Your outcomes were influenced by systemic barriers based on your assigned identity, showing how opportunities and obstacles accumulate over time.")
 
 if __name__ == "__main__":
     run_simulation()
