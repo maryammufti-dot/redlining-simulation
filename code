@@ -1,76 +1,88 @@
 import random
 
-# Step 1: Assign identities
+# Step 1: Assign mock identities
 identities = ["White", "Black", "Hispanic", "Other"]
-students = []
 
-num_students = int(input("Enter number of students to simulate: "))
-
-for i in range(num_students):
-    student = {
-        "id": i+1,
-        "identity": random.choice(identities),
-        "wealth": 50,   # start wealth points
-        "health": 50,   # start health points
-        "education": 50 # start education points
+# Life events with different possible choices
+life_events = [
+    {
+        "event": "You want to buy a house in your neighborhood.",
+        "choices": ["Apply for a mortgage", "Rent instead", "Move to another area"]
+    },
+    {
+        "event": "You want to go to college.",
+        "choices": ["Apply for scholarships", "Attend community college", "Skip college"]
+    },
+    {
+        "event": "You need healthcare for a minor illness.",
+        "choices": ["Go to private clinic", "Go to free clinic", "Ignore symptoms"]
+    },
+    {
+        "event": "You are offered a job opportunity.",
+        "choices": ["Take high paying job", "Take low paying job", "Start own business"]
     }
-    students.append(student)
+]
 
-# Step 2: Define life events
-def buy_home(student):
-    if student["identity"] in ["Black", "Hispanic"]:
-        student["wealth"] -= random.randint(5, 15)  # higher mortgage rates, harder loans
+# Step 2: Define how identity affects outcomes
+# Positive or negative adjustments based on identity
+identity_modifiers = {
+    "White": {"wealth": 1.2, "education": 1.2, "health": 1.2},
+    "Black": {"wealth": 0.8, "education": 0.9, "health": 0.9},
+    "Hispanic": {"wealth": 0.85, "education": 0.95, "health": 0.95},
+    "Other": {"wealth": 1.0, "education": 1.0, "health": 1.0}
+}
+
+# Step 3: Initialize student
+def create_student():
+    student = {
+        "identity": random.choice(identities),
+        "wealth": 50,
+        "education": 50,
+        "health": 50
+    }
+    return student
+
+# Step 4: Simulate event
+def simulate_event(student, event):
+    print(f"\nEVENT: {event['event']}")
+    for idx, choice in enumerate(event["choices"], 1):
+        print(f"{idx}. {choice}")
+    while True:
+        try:
+            user_choice = int(input("Enter the number of your choice: "))
+            if 1 <= user_choice <= len(event["choices"]):
+                break
+            else:
+                print("Please enter a valid number.")
+        except ValueError:
+            print("Please enter a number.")
+    
+    # Base adjustments
+    if user_choice == 1:
+        base_wealth = 10
+        base_education = 5
+        base_health = 5
+    elif user_choice == 2:
+        base_wealth = 5
+        base_education = 10
+        base_health = 5
     else:
-        student["wealth"] += random.randint(5, 15)  # easier loan approval
+        base_wealth = 0
+        base_education = 0
+        base_health = 0
 
-def college(student):
-    if student["identity"] in ["Black", "Hispanic"]:
-        student["education"] -= random.randint(5, 10)  # systemic barriers
-    else:
-        student["education"] += random.randint(5, 10)
+    # Apply identity modifiers
+    mod = identity_modifiers[student["identity"]]
+    student["wealth"] += int(base_wealth * mod["wealth"])
+    student["education"] += int(base_education * mod["education"])
+    student["health"] += int(base_health * mod["health"])
+    
+    print(f"\nCurrent Status: Wealth={student['wealth']}, Education={student['education']}, Health={student['health']}")
 
-def healthcare(student):
-    if student["identity"] in ["Black", "Hispanic"]:
-        student["health"] -= random.randint(5, 10)  # less access
-    else:
-        student["health"] += random.randint(5, 10)
-
-def career(student):
-    if student["identity"] in ["Black", "Hispanic"]:
-        student["wealth"] += random.randint(0, 5)  # lower starting salary
-    else:
-        student["wealth"] += random.randint(5, 15)
-
-# Step 3: Run simulation
-events = [buy_home, college, healthcare, career]
-
-for student in students:
-    for event in events:
-        event(student)
-
-# Step 4: Print results
-print("\n--- Simulation Results ---")
-for student in students:
-    print(f"Student {student['id']} ({student['identity']}):")
-    print(f"  Wealth: {student['wealth']}")
-    print(f"  Education: {student['education']}")
-    print(f"  Health: {student['health']}\n")
-
-# Optional: show average scores by identity
-from collections import defaultdict
-
-totals = defaultdict(lambda: {"wealth": 0, "education": 0, "health": 0, "count": 0})
-
-for student in students:
-    iden = student["identity"]
-    totals[iden]["wealth"] += student["wealth"]
-    totals[iden]["education"] += student["education"]
-    totals[iden]["health"] += student["health"]
-    totals[iden]["count"] += 1
-
-print("--- Average Scores by Identity ---")
-for iden, data in totals.items():
-    print(f"{iden}:")
-    print(f"  Wealth: {data['wealth']/data['count']:.1f}")
-    print(f"  Education: {data['education']/data['count']:.1f}")
-    print(f"  Health: {data['health']/data['count']:.1f}\n")
+# Step 5: Run simulation
+def run_simulation():
+    student = create_student()
+    print(f"Your assigned identity for this simulation is: {student['identity']}")
+    
+    rounds = 5  # number of events to simulate
+    for i in range(rounds):
