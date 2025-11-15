@@ -1,48 +1,48 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Student Summary</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1, h2 { margin-bottom: 10px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-    .status { font-weight: bold; }
-    a { text-decoration: none; color: blue; }
-  </style>
+<meta charset="utf-8">
+<title>Student Summary</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+h1,h2 { margin-bottom: 10px; }
+table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+th,td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+th { background-color: #f2f2f2; }
+.status { font-weight: bold; }
+a { text-decoration: none; color: blue; }
+</style>
 </head>
 <body>
-  <h1>Student Summary</h1>
-  <p><a href="/">← Back to Classroom Dashboard</a></p>
+<h1>Student Summary</h1>
+<p><a href="/">← Back to Classroom Dashboard</a></p>
 
-  <h2>Identity</h2>
-  <p>Race: {{ student.identity }}</p>
-  <p>Gender: {{ student.gender }}</p>
-  <p>Blurb: {{ student.blurb }}</p>
+<h2>Identity</h2>
+<p>Race: {{ student.identity }}</p>
+<p>Gender: {{ student.gender }}</p>
+<p>Blurb: {{ student.blurb }}</p>
 
-  <h2>Final Scores</h2>
-  <p>Wealth: {{ student.wealth }}</p>
-  <p>Education: {{ student.education }}</p>
-  <p>Health: {{ student.health }}</p>
+<h2>Final Scores</h2>
+<p>Wealth: {{ student.wealth }}</p>
+<p>Education: {{ student.education }}</p>
+<p>Health: {{ student.health }}</p>
 
-  <h2>Event History</h2>
-  <table>
-    <tr>
-      <th>Event</th>
-      <th>Choice</th>
-      <th>Outcome</th>
-      <th>Effects (Wealth, Education, Health)</th>
-    </tr>
-    {% for row in student.history %}
-    <tr>
-      <td>{{ row.event }}</td>
-      <td>{{ row.choice }}</td>
-      <td class="status">{{ row.outcome }}</td>
-      <td>{{ row.effects }}</td>
-    </tr>
-    {% endfor %}
-  </table>
+<h2>Event History</h2>
+<table>
+<tr>
+<th>Event</th>
+<th>Choice</th>
+<th>Outcome</th>
+<th>Effects (Wealth, Education, Health)</th>
+</tr>
+{% for row in student.history %}
+<tr>
+<td>{{ row.event }}</td>
+<td>{{ row.choice }}</td>
+<td class="status">{{ row.outcome }}</td>
+<td>{{ row.effects }}</td>
+</tr>
+{% endfor %}
+</table>
 </body>
 </html>
