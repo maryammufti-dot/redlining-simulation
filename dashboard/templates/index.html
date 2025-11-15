@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Classroom Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Classroom Dashboard</h1>
+  <p>Summary of student final scores</p>
+
+  <canvas id="wealthChart" width="600" height="200"></canvas>
+  <canvas id="eduChart" width="600" height="200"></canvas>
+  <canvas id="healthChart" width="600" height="200"></canvas>
+
+  <script>
+    const wealth = {{ wealth|tojson }};
+    const education = {{ education|tojson }};
+    const health = {{ health|tojson }};
+    const labels = Array.from({length: wealth.length}, (_,i)=> "S"+(i+1));
+
+    new Chart(document.getElementById('wealthChart'), {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: 'Wealth', data: wealth }] }
+    });
+    new Chart(document.getElementById('eduChart'), {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: 'Education', data: education }] }
+    });
+    new Chart(document.getElementById('healthChart'), {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: 'Health', data: health }] }
+    });
+  </script>
+</body>
+</html>
