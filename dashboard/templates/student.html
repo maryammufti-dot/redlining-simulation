@@ -2,47 +2,58 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Student Summary</title>
-<style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-h1,h2 { margin-bottom: 10px; }
-table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-th,td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-th { background-color: #f2f2f2; }
-.status { font-weight: bold; }
-a { text-decoration: none; color: blue; }
-</style>
+<title>Student Simulation</title>
 </head>
 <body>
-<h1>Student Summary</h1>
-<p><a href="/">← Back to Classroom Dashboard</a></p>
+<h1>Student Simulation</h1>
+<button id="start">Start Simulation</button>
+<div id="identity"></div>
+<div id="event_section" style="display:none;">
+  <p id="event_text"></p>
+  <div id="choices"></div>
+</div>
+<script>
+let student_id = null;
+let current_event = null;
 
-<h2>Identity</h2>
-<p>Race: {{ student.identity }}</p>
-<p>Gender: {{ student.gender }}</p>
-<p>Blurb: {{ student.blurb }}</p>
+document.getElementById("start").onclick = async () => {
+  let res = await fetch("/start_student", {method:"POST"});
+  let data = await res.json();
+  student_id = data.student_id;
+  document.getElementById("identity").innerHTML = `<p>${data.identity} (${data.gender})</p><p>${data.blurb}</p>`;
+  getNextEvent();
+};
 
-<h2>Final Scores</h2>
-<p>Wealth: {{ student.wealth }}</p>
-<p>Education: {{ student.education }}</p>
-<p>Health: {{ student.health }}</p>
+async function getNextEvent() {
+  let res = await fetch(`/get_next_event/${student_id}`);
+  let data = await res.json();
+  if(data.done){
+    document.getElementById("event_section").innerHTML="<p>Simulation Complete!</p>";
+    return;
+  }
+  current_event = data.event;
+  document.getElementById("event_section").style.display="block";
+  document.getElementById("event_text").innerText = current_event.event;
+  let choicesDiv = document.getElementById("choices");
+  choicesDiv.innerHTML = "";
+  current_event.choices.forEach((c)=>{
+    let btn = document.createElement("button");
+    btn.innerText=c;
+    btn.onclick = ()=>submitMove(c);
+    choicesDiv.appendChild(btn);
+  });
+}
 
-<h2>Event History</h2>
-<table>
-<tr>
-<th>Event</th>
-<th>Choice</th>
-<th>Outcome</th>
-<th>Effects (Wealth, Education, Health)</th>
-</tr>
-{% for row in student.history %}
-<tr>
-<td>{{ row.event }}</td>
-<td>{{ row.choice }}</td>
-<td class="status">{{ row.outcome }}</td>
-<td>{{ row.effects }}</td>
-</tr>
-{% endfor %}
-</table>
+async function submitMove(choice){
+  let res = await fetch("/submit_move",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({student_id, choice})
+  });
+  let data = await res.json();
+  alert(`Outcome: ${data.outcome}`);
+  getNextEvent();
+}
+</script>
 </body>
 </html>
