@@ -3,7 +3,7 @@ import random
 # Step 1: Assign identity
 identities = ["White", "Black", "Hispanic", "Other"]
 
-# Step 2: Life events with same choices for all
+# Step 2: Life events with same choices
 life_events = [
     {"event": "You want to buy a house in your neighborhood.", 
      "choices": ["Apply for mortgage", "Rent instead", "Move to another area"]},
@@ -27,29 +27,20 @@ life_events = [
      "choices": ["Safe neighborhood", "Moderate safety", "Unsafe neighborhood"]},
 ]
 
-# Step 3: Identity-specific outcomes
+# Step 3: Determine outcome based on identity
 def get_outcome(student_identity, choice):
-    # Mapping systemic barriers
+    # White students are very likely to succeed
     if student_identity == "White":
-        # White faces no barriers
         return "Success", 10, 10, 5
-    elif student_identity == "Black":
-        # Black students face barriers
-        if choice in ["Apply for mortgage", "Apply for scholarships", "Apply for auto loan", "Apply for business loan", "Promotion awarded"]:
-            return "Denied / Barrier encountered", 0, 0, -5
-        elif choice in ["Take high paying job", "Go to private clinic", "Affordable high-quality childcare", "Safe neighborhood"]:
-            return "Partial success", 5, 5, 0
-        else:
-            return "Neutral outcome", 5, 5, 0
-    elif student_identity == "Hispanic":
-        # Hispanic students face moderate barriers
-        if choice in ["Apply for mortgage", "Apply for scholarships", "Apply for auto loan", "Apply for business loan", "Promotion awarded"]:
-            return "Denied / Barrier encountered", 0, 0, -3
-        else:
-            return "Neutral outcome", 5, 5, 0
     else:
-        # Other identities face average outcomes
-        return "Outcome varies", 5, 5, 0
+        # Other identities have a chance of denial/barrier
+        chance = random.random()  # 0.0 to 1.0
+        if chance < 0.5:  # 50% chance for denied/barrier
+            return "Denied / Barrier encountered", 0, 0, -5
+        elif chance < 0.8:  # 30% chance for partial success
+            return "Partial success", 5, 5, 0
+        else:  # 20% chance full success
+            return "Success", 10, 10, 5
 
 # Step 4: Apply event
 def apply_event(student, event):
@@ -64,42 +55,3 @@ def apply_event(student, event):
                 break
             else:
                 print("Enter a valid number.")
-        except ValueError:
-            print("Enter a number.")
-
-    choice = event["choices"][user_choice - 1]
-    outcome_message, wealth_change, edu_change, health_change = get_outcome(student["identity"], choice)
-    student["wealth"] += wealth_change
-    student["education"] += edu_change
-    student["health"] += health_change
-
-    print(f"Your choice: {choice}")
-    print(f"Outcome: {outcome_message}")
-    print(f"Current Status → Wealth: {student['wealth']}, Education: {student['education']}, Health: {student['health']}")
-
-# Step 5: Run simulation
-def run_simulation():
-    student = {
-        "identity": random.choice(identities),
-        "wealth": 50,
-        "education": 50,
-        "health": 50
-    }
-
-    print(f"Your assigned identity is: {student['identity']}")
-
-    rounds = 10  # number of life events
-    for i in range(rounds):
-        event = random.choice(life_events)
-        apply_event(student, event)
-
-    # End summary
-    print("\n--- Simulation Complete ---")
-    print(f"Final outcomes for identity {student['identity']}:")
-    print(f"Wealth: {student['wealth']}")
-    print(f"Education: {student['education']}")
-    print(f"Health: {student['health']}")
-    print("\nReflection: Your outcomes were influenced by systemic barriers based on your assigned identity, showing how opportunities and obstacles accumulate over time.")
-
-if __name__ == "__main__":
-    run_simulation()
