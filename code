@@ -1,57 +1,417 @@
-import random
+"""
+Redlining Simulation v1.0
+- Interactive single-student simulation with branching storylines
+- Records every move and produces a per-student summary
+- Optional neighborhood map (PNG via matplotlib or ASCII fallback)
+- Optional PDF export (reportlab) or plain text export
+- Classroom dashboard to run N simulations and export CSV for grading/comparison
 
-# Step 1: Assign identity
-identities = ["White", "Black", "Hispanic", "Other"]
+Optional dependencies (for extra features):
+    pip install reportlab matplotlib pandas
+"""
 
-# Step 2: Life events with same choices
-life_events = [
-    {"event": "You want to buy a house in your neighborhood.", 
-     "choices": ["Apply for mortgage", "Rent instead", "Move to another area"]},
-    {"event": "You want to go to college.", 
-     "choices": ["Apply for scholarships", "Attend community college", "Skip college"]},
-    {"event": "You need healthcare for a minor illness.", 
-     "choices": ["Go to private clinic", "Go to community clinic", "Ignore symptoms"]},
-    {"event": "You are offered a job opportunity.", 
-     "choices": ["Take high paying job", "Take moderate paying job", "Start own business"]},
-    {"event": "You want to buy a car.", 
-     "choices": ["Apply for auto loan", "Buy used car with cash", "Take public transportation"]},
-    {"event": "You want to start a small business.", 
-     "choices": ["Apply for business loan", "Self-fund business", "Wait and save money"]},
-    {"event": "You face a medical emergency.", 
-     "choices": ["Go to ER", "Visit urgent care", "Ignore symptoms"]},
-    {"event": "You are up for a promotion.", 
-     "choices": ["Promotion awarded", "Promotion delayed", "No promotion"]},
-    {"event": "You need childcare for your child.", 
-     "choices": ["Affordable high-quality childcare", "Moderate childcare", "Rely on family/friends"]},
-    {"event": "You are concerned about neighborhood safety.", 
-     "choices": ["Safe neighborhood", "Moderate safety", "Unsafe neighborhood"]},
+import random, csv, json, os, datetime
+
+# Optional libraries
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.pdfgen import canvas
+    REPORTLAB_AVAILABLE = True
+except Exception:
+    REPORTLAB_AVAILABLE = False
+
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except Exception:
+    MATPLOTLIB_AVAILABLE = False
+
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except Exception:
+    PANDAS_AVAILABLE = False
+
+# ----------------------------
+# Config
+# ----------------------------
+IDENTITY_PROFILES = [
+    # richer identity entries: race, gender, blurb/background
+    {"race": "White",   "gender": "Female", "blurb": "Grew up in a stable neighborhood with family homeownership in the past."},
+    {"race": "White",   "gender": "Male",   "blurb": "Has family connections to local banks and employers."},
+    {"race": "Black",   "gender": "Female", "blurb": "Lives in an historically redlined area; family renters for generations."},
+    {"race": "Black",   "gender": "Male",   "blurb": "Family faces frequent rejections from loan applications historically."},
+    {"race": "Hispanic","gender": "Female", "blurb": "Immigrant family; strong community ties but limited access to capital."},
+    {"race": "Hispanic","gender": "Male",   "blurb": "Works multiple jobs; limited time for school or banking."},
+    {"race": "Other",   "gender": "Nonbinary","blurb":"Mixed ancestry; community experience varies."}
 ]
 
-# Step 3: Determine outcome based on identity
-def get_outcome(student_identity, choice):
-    # White students are very likely to succeed
-    if student_identity == "White":
-        return "Success", 10, 10, 5
+# base stat starting values
+BASE_WEALTH = 50
+BASE_EDUCATION = 50
+BASE_HEALTH = 50
+
+# life events (same choices for everyone). We'll implement branching by adding next_event keys or logic.
+LIFE_EVENTS = [
+    {"id":"housing", "event":"You want to buy a house in your neighborhood.",
+     "choices":["Apply for mortgage", "Rent instead", "Move to another area"]},
+    {"id":"college", "event":"You want to go to college.",
+     "choices":["Apply for scholarships", "Attend community college", "Skip college"]},
+    {"id":"clinic", "event":"You need healthcare for a minor illness.",
+     "choices":["Go to private clinic", "Go to community clinic", "Ignore symptoms"]},
+    {"id":"job_offer", "event":"You are offered a job opportunity.",
+     "choices":["Take high paying job", "Take moderate paying job", "Start own business"]},
+    {"id":"car", "event":"You want to buy a car.",
+     "choices":["Apply for auto loan", "Buy used car with cash", "Take public transportation"]},
+    {"id":"business", "event":"You want to start a small business.",
+     "choices":["Apply for business loan", "Self-fund business", "Wait and save money"]},
+    {"id":"emergency", "event":"You face a medical emergency.",
+     "choices":["Go to ER", "Visit urgent care", "Ignore symptoms"]},
+    {"id":"promotion", "event":"You are up for a promotion.",
+     "choices":["Promotion awarded", "Promotion delayed", "No promotion"]},
+    {"id":"childcare", "event":"You need childcare for your child.",
+     "choices":["Affordable high-quality childcare", "Moderate childcare", "Rely on family/friends"]},
+    {"id":"safety", "event":"You are concerned about neighborhood safety.",
+     "choices":["Safe neighborhood", "Moderate safety", "Unsafe neighborhood"]}
+]
+
+# outcomes: a table describing probability of outcomes for different groups.
+# Each identity race will have a success probability modifier for "success" events
+OUTCOME_PROBS = {
+    "White":   {"success": 0.85, "partial": 0.10, "deny": 0.05},
+    "Black":   {"success": 0.20, "partial": 0.30, "deny": 0.50},
+    "Hispanic":{"success": 0.30, "partial": 0.35, "deny": 0.35},
+    "Other":   {"success": 0.50, "partial": 0.30, "deny": 0.20}
+}
+
+# item effects (concrete numeric changes for outcome types)
+EFFECTS = {
+    "success":  {"wealth": +10, "education": +10, "health": +5,  "message":"Success"},
+    "partial":  {"wealth": +5,  "education": +5,  "health": 0,  "message":"Partial success"},
+    "deny":     {"wealth": 0,   "education": 0,   "health": -5, "message":"Denied / Barrier encountered"}
+}
+
+# branching logic example: certain choices increase chance of related future events
+# (simple illustration: choosing to apply for mortgage may increase chance of seeing "safety" or "promotion" later)
+BRANCH_RULES = {
+    # after housing choice "Apply for mortgage", bump likelihood of "safety" or "promotion" event
+    "housing_apply": {"boost_event_ids": ["safety", "promotion"], "boost": 0.15}
+}
+
+# ----------------------------
+# Helper functions
+# ----------------------------
+def pick_identity(seed=None):
+    # randomly assign a profile (race + gender + blurb)
+    profile = random.choice(IDENTITY_PROFILES)
+    # return a copy
+    return dict(profile)
+
+def decide_outcome(race, rng=None):
+    # returns "success" / "partial" / "deny" based on OUTCOME_PROBS for that race
+    if rng is None:
+        rng = random.random()
+    probs = OUTCOME_PROBS.get(race, OUTCOME_PROBS["Other"])
+    p = rng
+    if p < probs["success"]:
+        return "success"
+    elif p < probs["success"] + probs["partial"]:
+        return "partial"
     else:
-        # Other identities have a chance of denial/barrier
-        chance = random.random()  # 0.0 to 1.0
-        if chance < 0.5:  # 50% chance for denied/barrier
-            return "Denied / Barrier encountered", 0, 0, -5
-        elif chance < 0.8:  # 30% chance for partial success
-            return "Partial success", 5, 5, 0
-        else:  # 20% chance full success
-            return "Success", 10, 10, 5
+        return "deny"
 
-# Step 4: Apply event
-def apply_event(student, event):
-    print(f"\nEVENT: {event['event']}")
-    for idx, choice in enumerate(event["choices"], 1):
-        print(f"{idx}. {choice}")
+def event_effects(outcome_type):
+    return EFFECTS[outcome_type]
 
-    while True:
-        try:
-            user_choice = int(input("Enter the number of your choice: "))
-            if 1 <= user_choice <= len(event["choices"]):
+# non-repeating event selection with optional weights (weights can be adjusted by branch rules)
+def select_events_once(all_events, weights=None):
+    events = all_events.copy()
+    selected = []
+    if weights is None:
+        # random shuffle and return
+        random.shuffle(events)
+        return events
+    # Weighted draw without replacement
+    events = events.copy()
+    w = weights.copy()
+    while events:
+        total = sum(w[e["id"]] for e in events)
+        r = random.random() * total
+        upto = 0
+        for e in events:
+            upto += w[e["id"]]
+            if upto >= r:
+                selected.append(e)
+                events.remove(e)
                 break
-            else:
-                print("Enter a valid number.")
+    return selected
+
+# Save a PNG neighborhood map (simple grid with a marker). Use matplotlib if available else ascii save.
+def save_neighborhood_map(filename, label="Neighborhood"):
+    if MATPLOTLIB_AVAILABLE:
+        fig, ax = plt.subplots(figsize=(4,4))
+        # Simple grid and a colored square for "resource level" (randomized for demo)
+        grid = [[random.random() for _ in range(5)] for _ in range(5)]
+        ax.imshow(grid, cmap='YlOrRd')
+        ax.set_title(label)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        plt.tight_layout()
+        fig.savefig(filename)
+        plt.close(fig)
+        return True
+    else:
+        # ASCII fallback
+        try:
+            with open(filename, "w") as f:
+                f.write(label + "\n")
+                for _ in range(5):
+                    row = "".join(random.choice([".", ":", "*", "#"]) for _ in range(5))
+                    f.write(row + "\n")
+            return True
+        except Exception:
+            return False
+
+# Export per-student PDF using reportlab if available; else write a text summary
+def export_student_summary_pdf(student_record, pdf_path):
+    if REPORTLAB_AVAILABLE:
+        c = canvas.Canvas(pdf_path, pagesize=letter)
+        width, height = letter
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(40, height-50, f"Simulation Summary — Student {student_record['id']}")
+        c.setFont("Helvetica", 10)
+        c.drawString(40, height-70, f"Assigned Identity: {student_record['identity']['race']}, {student_record['identity']['gender']}")
+        c.drawString(40, height-85, f"Background: {student_record['identity']['blurb']}")
+        c.drawString(40, height-100, f"Final Wealth: {student_record['final']['wealth']}")
+        c.drawString(40, height-115, f"Final Education: {student_record['final']['education']}")
+        c.drawString(40, height-130, f"Final Health: {student_record['final']['health']}")
+        c.drawString(40, height-150, "Move log:")
+        y = height-165
+        for move in student_record['moves']:
+            line = f"- {move['event_id']}: choice='{move['choice']}' → {move['outcome_type']} ({move['message']})"
+            c.drawString(50, y, line[:100])  # truncate line length if necessary
+            y -= 12
+            if y < 50:
+                c.showPage()
+                y = height-50
+        c.save()
+        return True
+    else:
+        # fallback: write text file
+        try:
+            with open(pdf_path.replace(".pdf", ".txt"), "w") as f:
+                f.write(f"Simulation Summary — Student {student_record['id']}\n")
+                f.write(f"Assigned Identity: {student_record['identity']['race']}, {student_record['identity']['gender']}\n")
+                f.write(f"Background: {student_record['identity']['blurb']}\n")
+                f.write(f"Final Wealth: {student_record['final']['wealth']}\n")
+                f.write(f"Final Education: {student_record['final']['education']}\n")
+                f.write(f"Final Health: {student_record['final']['health']}\n\n")
+                f.write("Move log:\n")
+                for move in student_record['moves']:
+                    f.write(f"- {move['event_id']}: choice='{move['choice']}' → {move['outcome_type']} ({move['message']})\n")
+            return True
+        except Exception:
+            return False
+
+# ----------------------------
+# Simulation engine
+# ----------------------------
+def simulate_single_student(student_id=1, verbose=True, seed=None, export_map=False, export_pdf=False):
+    if seed is not None:
+        random.seed(seed + student_id)
+
+    identity = pick_identity()
+    student = {
+        "id": student_id,
+        "identity": identity,
+        "wealth": BASE_WEALTH,
+        "education": BASE_EDUCATION,
+        "health": BASE_HEALTH,
+        "moves": []
+    }
+
+    # Prepare event weights (default 1.0 each)
+    weights = {e["id"]: 1.0 for e in LIFE_EVENTS}
+
+    # Select events without repetition (weighted)
+    events_ordered = select_events_once(LIFE_EVENTS, weights)
+
+    if verbose:
+        print(f"\n----- Student {student_id} -----")
+        print(f"Assigned identity: {identity['race']}, {identity['gender']}")
+        print("Background:", identity["blurb"])
+        print("Starting stats: Wealth={wealth}, Education={education}, Health={health}".format(**student))
+
+    # run through events
+    for ev in events_ordered:
+        # present event
+        if verbose:
+            print("\nEVENT:", ev["event"])
+            for i, ch in enumerate(ev["choices"], 1):
+                print(f"  {i}. {ch}")
+        # get choice from user if interactive; otherwise pick randomly (for classroom batch mode)
+        if verbose:
+            # interactive input
+            while True:
+                try:
+                    choice_idx = int(input("Enter the number of your choice (or 0 to randomly pick): "))
+                    if choice_idx == 0:
+                        choice_idx = random.randint(1, len(ev["choices"]))
+                        print(f"Randomly chosen: {choice_idx} -> {ev['choices'][choice_idx-1]}")
+                        break
+                    if 1 <= choice_idx <= len(ev["choices"]):
+                        break
+                    else:
+                        print("Please enter a valid number.")
+                except ValueError:
+                    print("Please enter a number.")
+        else:
+            choice_idx = random.randint(1, len(ev["choices"]))
+
+        choice = ev["choices"][choice_idx - 1]
+
+        # determine outcome based on race probabilities
+        outcome_type = decide_outcome(identity["race"])
+        effects = event_effects(outcome_type)
+        student["wealth"] += effects["wealth"]
+        student["education"] += effects["education"]
+        student["health"] += effects["health"]
+
+        # record move
+        move = {
+            "event_id": ev["id"],
+            "event_text": ev["event"],
+            "choice": choice,
+            "outcome_type": outcome_type,
+            "message": effects["message"],
+            "delta": {"wealth": effects["wealth"], "education": effects["education"], "health": effects["health"]}
+        }
+        student["moves"].append(move)
+
+        if verbose:
+            print(f"Choice: {choice}")
+            print(f"Outcome: {effects['message']} (wealth {effects['wealth']:+}, edu {effects['education']:+}, health {effects['health']:+})")
+            print(f"Current stats: Wealth={student['wealth']}, Education={student['education']}, Health={student['health']}")
+
+        # Branching example: if student applied for mortgage and outcome was success, slightly boost weight for 'safety' event
+        if ev["id"] == "housing" and "mortgage" in choice.lower():
+            if outcome_type == "success":
+                weights["safety"] = weights.get("safety",1.0) + 0.20
+            elif outcome_type == "deny":
+                weights["safety"] = weights.get("safety",1.0) - 0.10
+
+    # End of student run
+    student["final"] = {"wealth": student["wealth"], "education": student["education"], "health": student["health"]}
+
+    # optional map export
+    map_filename = None
+    if export_map:
+        map_filename = f"student_{student_id}_map.png" if MATPLOTLIB_AVAILABLE else f"student_{student_id}_map.txt"
+        save_neighborhood_map(map_filename, label=f"Student {student_id} Map")
+        if verbose:
+            print(f"Saved neighborhood map to {map_filename}")
+
+    # optional PDF/text export
+    summary_path = None
+    if export_pdf:
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        summary_path = f"student_{student_id}_summary_{ts}.pdf"
+        ok = export_student_summary_pdf(student, summary_path)
+        if verbose:
+            print(f"Exported student summary to {summary_path if ok else 'FAILED'}")
+
+    return student
+
+# ----------------------------
+# Classroom dashboard: simulate many students and produce CSV + summary
+# ----------------------------
+def run_classroom_simulation(num_students=30, export_csv=True, export_pdf_per_student=False, export_map=False, seed=None):
+    records = []
+    for sid in range(1, num_students+1):
+        # run non-verbose (batch) simulation
+        student = simulate_single_student(student_id=sid, verbose=False, seed=seed, export_map=export_map, export_pdf=export_pdf_per_student)
+        records.append(student)
+        # print a short line for progress
+        print(f"Completed student {sid} (identity: {student['identity']['race']})")
+
+    # aggregate statistics
+    agg = {}
+    for r in records:
+        race = r["identity"]["race"]
+        agg.setdefault(race, {"count":0,"wealth":0,"education":0,"health":0})
+        agg[race]["count"] += 1
+        agg[race]["wealth"] += r["final"]["wealth"]
+        agg[race]["education"] += r["final"]["education"]
+        agg[race]["health"] += r["final"]["health"]
+
+    print("\nClassroom Dashboard Summary:")
+    for race, data in agg.items():
+        print(f"- {race}: n={data['count']}, avg wealth={data['wealth']/data['count']:.1f}, avg edu={data['education']/data['count']:.1f}, avg health={data['health']/data['count']:.1f}")
+
+    # export CSV of all moves (flattened)
+    if export_csv:
+        rows = []
+        for s in records:
+            for m in s["moves"]:
+                rows.append({
+                    "student_id": s["id"],
+                    "race": s["identity"]["race"],
+                    "gender": s["identity"]["gender"],
+                    "event_id": m["event_id"],
+                    "choice": m["choice"],
+                    "outcome_type": m["outcome_type"],
+                    "delta_wealth": m["delta"]["wealth"],
+                    "delta_education": m["delta"]["education"],
+                    "delta_health": m["delta"]["health"],
+                    "final_wealth": s["final"]["wealth"],
+                    "final_edu": s["final"]["education"],
+                    "final_health": s["final"]["health"]
+                })
+        csv_file = "classroom_results.csv"
+        with open(csv_file, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
+        print(f"Exported classroom CSV to {csv_file}")
+
+    # Optionally create a quick plot (requires pandas/matplotlib)
+    if PANDAS_AVAILABLE and MATPLOTLIB_AVAILABLE:
+        df = pd.DataFrame(rows)
+        # plot average final wealth by race
+        fig = df.groupby("race")["final_wealth"].mean().plot.bar(title="Average Final Wealth by Race").get_figure()
+        fig.savefig("dashboard_avg_wealth_by_race.png")
+        print("Saved dashboard chart dashboard_avg_wealth_by_race.png")
+
+    return records
+
+# ----------------------------
+# main execution logic
+# ----------------------------
+def interactive_menu():
+    print("Redlining Simulation (interactive)\n")
+    print("1) Run a single interactive simulation")
+    print("2) Run classroom simulation (batch, N students)")
+    print("3) Exit")
+    choice = input("Enter choice: ").strip()
+    if choice == "1":
+        s = simulate_single_student(student_id=1, verbose=True, seed=None, export_map=True, export_pdf=True)
+        print("\n--- Final Summary ---")
+        print(f"Identity: {s['identity']['race']}, {s['identity']['gender']}")
+        print("Background:", s['identity']['blurb'])
+        print("Final stats:", s['final'])
+        # write a JSON summary
+        with open(f"student_{s['id']}_summary.json", "w") as f:
+            json.dump(s, f, indent=2)
+        print(f"Saved JSON summary to student_{s['id']}_summary.json")
+    elif choice == "2":
+        try:
+            n = int(input("How many students (e.g., 30)? ").strip())
+        except ValueError:
+            n = 30
+        run_classroom_simulation(num_students=n, export_csv=True, export_pdf_per_student=False, export_map=False, seed=42)
+    else:
+        print("Goodbye.")
+
+if __name__ == "__main__":
+    interactive_menu()
